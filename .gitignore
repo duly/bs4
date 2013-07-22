@@ -1,0 +1,12 @@
+# old skool
+.svn
+.cvs
+
+# Python
+*.pyc
+
+# PyCharm
+.idea
+
+# osx noise
+.DS_Store
