@@ -27,7 +27,7 @@ class HTML5TreeBuilder(HTMLTreeBuilder):
     def prepare_markup(self, markup, user_specified_encoding):
         # Store the user-specified encoding for use later on.
         self.user_specified_encoding = user_specified_encoding
-        return markup, None, None, False
+        yield (markup, None, None, False)
 
     # These methods are defined by Beautiful Soup.
     def feed(self, markup):
@@ -123,17 +123,36 @@ class Element(html5lib.treebuilders._base.Node):
         self.namespace = namespace
 
     def appendChild(self, node):
-        if (node.element.__class__ == NavigableString and self.element.contents
+        string_child = child = None
+        if isinstance(node, basestring):
+            # Some other piece of code decided to pass in a string
+            # instead of creating a TextElement object to contain the
+            # string.
+            string_child = child = node
+        elif isinstance(node, Tag):
+            # Some other piece of code decided to pass in a Tag
+            # instead of creating an Element object to contain the
+            # Tag.
+            child = node
+        elif node.element.__class__ == NavigableString:
+            string_child = child = node.element
+        else:
+            child = node.element
+
+        if (string_child and self.element.contents
             and self.element.contents[-1].__class__ == NavigableString):
-            # Concatenate new text onto old text node
-            # XXX This has O(n^2) performance, for input like
+            # We are appending a string onto another string.
+            # TODO This has O(n^2) performance, for input like
             # "a</a>a</a>a</a>..."
             old_element = self.element.contents[-1]
-            new_element = self.soup.new_string(old_element + node.element)
+            new_element = self.soup.new_string(old_element + string_child)
             old_element.replace_with(new_element)
-            self.soup._most_recent_element = new_element
+            self.soup._most_recent_element = new_element            
         else:
-            self.soup.object_was_parsed(node.element, parent=self.element)
+            if isinstance(node, basestring):
+                # Create a brand new NavigableString from this string.
+                child = self.soup.new_string(node)
+            self.soup.object_was_parsed(child, parent=self.element)
 
     def getAttributes(self):
         return AttrList(self.element)
@@ -162,11 +181,11 @@ class Element(html5lib.treebuilders._base.Node):
     attributes = property(getAttributes, setAttributes)
 
     def insertText(self, data, insertBefore=None):
-        text = TextNode(self.soup.new_string(data), self.soup)
         if insertBefore:
-            self.insertBefore(text, insertBefore)
+            text = TextNode(self.soup.new_string(data), self.soup)
+            self.insertBefore(data, insertBefore)
         else:
-            self.appendChild(text)
+            self.appendChild(data)
 
     def insertBefore(self, node, refNode):
         index = self.element.index(refNode.element)
@@ -182,17 +201,13 @@ class Element(html5lib.treebuilders._base.Node):
 
     def removeChild(self, node):
         node.element.extract()
+        pass
 
     def reparentChildren(self, newParent):
         while self.element.contents:
             child = self.element.contents[0]
             child.extract()
-            if isinstance(child, Tag):
-                newParent.appendChild(
-                    Element(child, self.soup, namespaces["html"]))
-            else:
-                newParent.appendChild(
-                    TextNode(child, self.soup))
+            newParent.appendChild(child)
 
     def cloneNode(self):
         tag = self.soup.new_tag(self.element.name, self.namespace)

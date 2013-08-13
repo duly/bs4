@@ -255,10 +255,12 @@ class PageElement(object):
         self.previous_sibling = self.next_sibling = None
         return self
 
-    def _last_descendant(self):
+    def _last_descendant(self, is_initialized=True):
         "Finds the last element beneath this object to be parsed."
+        if is_initialized and self.next_sibling:
+            return self.next_sibling.previous_element
         last_child = self
-        while hasattr(last_child, 'contents') and last_child.contents:
+        while isinstance(last_child, Tag) and last_child.contents:
             last_child = last_child.contents[-1]
         return last_child
     # BS3: Not part of the API!
@@ -294,11 +296,11 @@ class PageElement(object):
             previous_child = self.contents[position - 1]
             new_child.previous_sibling = previous_child
             new_child.previous_sibling.next_sibling = new_child
-            new_child.previous_element = previous_child._last_descendant()
+            new_child.previous_element = previous_child._last_descendant(False)
         if new_child.previous_element is not None:
             new_child.previous_element.next_element = new_child
 
-        new_childs_last_element = new_child._last_descendant()
+        new_childs_last_element = new_child._last_descendant(False)
 
         if position >= len(self.contents):
             new_child.next_sibling = None
@@ -475,20 +477,20 @@ class PageElement(object):
 
         if isinstance(name, SoupStrainer):
             strainer = name
-        elif text is None and not limit and not attrs and not kwargs:
+        else:
+            strainer = SoupStrainer(name, attrs, text, **kwargs)
+
+        if text is None and not limit and not attrs and not kwargs:
             # Optimization to find all tags.
             if name is True or name is None:
-                return [element for element in generator
-                        if isinstance(element, Tag)]
+                result = (element for element in generator
+                          if isinstance(element, Tag))
+                ResultSet(strainer, result)
             # Optimization to find all tags with a given name.
             elif isinstance(name, basestring):
-                return [element for element in generator
-                        if isinstance(element, Tag) and element.name == name]
-            else:
-                strainer = SoupStrainer(name, attrs, text, **kwargs)
-        else:
-            # Build a SoupStrainer
-            strainer = SoupStrainer(name, attrs, text, **kwargs)
+                result = (element for element in generator
+                          if isinstance(element, Tag)
+                            and element.name == name)
         results = ResultSet(strainer)
         while True:
             try:
@@ -672,6 +674,13 @@ class NavigableString(unicode, PageElement):
         output = self.format_string(self, formatter)
         return self.PREFIX + output + self.SUFFIX
 
+    @property
+    def name(self):
+        return None
+
+    @name.setter
+    def name(self, name):
+        raise AttributeError("A NavigableString cannot be given a name.")
 
 class PreformattedString(NavigableString):
     """A NavigableString not subject to the normal formatting rules.
@@ -746,7 +755,7 @@ class Tag(PageElement):
         self.prefix = prefix
         if attrs is None:
             attrs = {}
-        elif builder.cdata_list_attributes:
+        elif attrs and builder.cdata_list_attributes:
             attrs = builder._replace_cdata_list_attribute_values(
                 self.name, attrs)
         else:
@@ -1593,6 +1602,6 @@ class SoupStrainer(object):
 class ResultSet(list):
     """A ResultSet is just a list that keeps track of the SoupStrainer
     that created it."""
-    def __init__(self, source):
-        list.__init__([])
+    def __init__(self, source, result=()):
+        super(ResultSet, self).__init__(result)
         self.source = source

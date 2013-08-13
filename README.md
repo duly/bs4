@@ -10,7 +10,7 @@ Beautiful Soup is a Python library designed for quick turnaround projects like s
 
 
 ##Version
-4.2.1  31-May-2013
+4.3.0  12-Aug-2013
 
 
 

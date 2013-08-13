@@ -115,6 +115,19 @@ class TestFindAll(TreeTest):
         # recursion.
         self.assertEqual([], soup.find_all(l))
 
+    def test_find_all_resultset(self):
+        """All find_all calls return a ResultSet"""
+        soup = self.soup("<a></a>")
+        result = soup.find_all("a")
+        self.assertTrue(hasattr(result, "source"))
+
+        result = soup.find_all(True)
+        self.assertTrue(hasattr(result, "source"))
+
+        result = soup.find_all(text="foo")
+        self.assertTrue(hasattr(result, "source"))
+
+
 class TestFindAllBasicNamespaces(TreeTest):
 
     def test_find_by_namespaced_name(self):
@@ -1219,6 +1232,12 @@ class TestCDAtaListAttributes(SoupTest):
         # attribute for any other tag.
         self.assertEqual('ISO-8859-1 UTF-8', soup.a['accept-charset'])
 
+    def test_string_has_immutable_name_property(self):
+        string = self.soup("s").string
+        self.assertEqual(None, string.name)
+        def t():
+            string.name = 'foo'
+        self.assertRaises(AttributeError, t)
 
 class TestPersistence(SoupTest):
     "Testing features like pickle and deepcopy."
