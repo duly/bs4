@@ -17,7 +17,7 @@ http://www.crummy.com/software/BeautifulSoup/bs4/doc/
 """
 
 __author__ = "Leonard Richardson (leonardr@segfault.org)"
-__version__ = "4.3.0"
+__version__ = "4.3.1"
 __copyright__ = "Copyright (c) 2004-2013 Leonard Richardson"
 __license__ = "MIT"
 
@@ -279,6 +279,7 @@ class BeautifulSoup(Tag):
         parent = parent or self.currentTag
         most_recent_element = most_recent_element or self._most_recent_element
         o.setup(parent, most_recent_element)
+
         if most_recent_element is not None:
             most_recent_element.next_element = o
         self._most_recent_element = o

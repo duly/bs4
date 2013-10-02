@@ -255,13 +255,16 @@ class PageElement(object):
         self.previous_sibling = self.next_sibling = None
         return self
 
-    def _last_descendant(self, is_initialized=True):
+    def _last_descendant(self, is_initialized=True, accept_self=True):
         "Finds the last element beneath this object to be parsed."
         if is_initialized and self.next_sibling:
-            return self.next_sibling.previous_element
-        last_child = self
-        while isinstance(last_child, Tag) and last_child.contents:
-            last_child = last_child.contents[-1]
+            last_child = self.next_sibling.previous_element
+        else:
+            last_child = self
+            while isinstance(last_child, Tag) and last_child.contents:
+                last_child = last_child.contents[-1]
+        if not accept_self and last_child == self:
+            last_child = None
         return last_child
     # BS3: Not part of the API!
     _lastRecursiveChild = _last_descendant
@@ -481,16 +484,17 @@ class PageElement(object):
             strainer = SoupStrainer(name, attrs, text, **kwargs)
 
         if text is None and not limit and not attrs and not kwargs:
-            # Optimization to find all tags.
             if name is True or name is None:
+                # Optimization to find all tags.
                 result = (element for element in generator
                           if isinstance(element, Tag))
-                ResultSet(strainer, result)
-            # Optimization to find all tags with a given name.
+                return ResultSet(strainer, result)
             elif isinstance(name, basestring):
+                # Optimization to find all tags with a given name.
                 result = (element for element in generator
                           if isinstance(element, Tag)
                             and element.name == name)
+                return ResultSet(strainer, result)
         results = ResultSet(strainer)
         while True:
             try:
